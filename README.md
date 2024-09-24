@@ -10,3 +10,7 @@ Change `.env` configurations to configure environment variables
 
 2) Create all the database 
 ``` db.create_all()```
+
+
+## Run the project using 
+```python app.py```
