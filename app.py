@@ -9,6 +9,8 @@ from utils.api_response import success_response,error_response
 from models.user import User
 from utils.main import db, auth
 from routes.auth import auth_routes
+from routes.dashboard import dashboard_routes
+from routes.frontend import frontend_routes
 
 #Load environment variables
 load_dotenv()
@@ -29,6 +31,8 @@ app.config['JWT_SECRET'] =os.getenv('JWT_SECRET')
 db.init_app(app)
 #Register the authentication routes
 app.register_blueprint(auth_routes)
+app.register_blueprint(dashboard_routes)
+app.register_blueprint(frontend_routes)
 
 
 if __name__ == "__main__":

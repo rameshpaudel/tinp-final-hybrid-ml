@@ -5,7 +5,7 @@ from flask import jsonify, g, request, current_app, Blueprint
 # werkzug allows -> headers, query args, form data, files, and cookies
 from werkzeug.security import generate_password_hash, check_password_hash
 from utils.api_response import success_response,error_response
-from models.user import User
+from models.user import User, LoginHistory
 from utils.main import db, auth
 
 auth_routes = Blueprint("auth", __name__)
@@ -13,22 +13,17 @@ auth_routes = Blueprint("auth", __name__)
 ##Routes
 @auth_routes.route('/login', methods=['POST'])
 def login():
-    username = None
-    password = None
-    auth_data = request.authorization or None
-    if auth_data:
-        username = auth_data.username
-        password = auth_data.password
-    else:
-        username = request.json['username']
-        password = request.json['password']
-    
+    username = request.json.get('username')
+    password = request.json.get('password')
+
     if username and password:
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
-            token = jwt.encode({'id': user.id,
-                                'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)},
-                               current_app.config['JWT_SECRET'])  
+            token = user.generate_auth_token()
+            # Log the successful login
+            login_history = LoginHistory(user_id=user.id, login_time=datetime.datetime.utcnow())
+            db.session.add(login_history)
+            db.session.commit()
             return jsonify({'token': token})
         return jsonify(error_response('Invalid credentials')), 401
     else:
@@ -50,6 +45,51 @@ def register():
             return jsonify(error_response('Username, email, and password fields are required')), 400
     except Exception as e:
         return jsonify(error_response(str(e))), 500
+
+@auth_routes.route('/logout', methods=['POST'])
+def logout():
+    token = request.headers.get('Authorization', None)
+    if token:
+        user = User.verify_auth_token(token)
+        if user:
+            # Log the successful logout
+            login_history = LoginHistory.query.filter_by(user_id=user.id, logout_time=None).order_by(LoginHistory.login_time.desc()).first()
+            if login_history:
+                login_history.logout_time = datetime.datetime.utcnow()
+                db.session.commit()
+            user.auth_token = None
+            db.session.commit()
+            return jsonify(success_response('Logged out successfully')), 200
+    return jsonify(error_response('Invalid token')), 401
+
+
+@auth_routes.route('/login-history', methods=['GET'])
+@auth.login_required
+def get_login_history():
+    user_id = g.user.id
+    login_history = LoginHistory.query.filter_by(user_id=user_id).order_by(LoginHistory.login_time.desc()).all()
+    history_data = [
+        {
+            'login_time': str(entry.login_time),
+            'logout_time': str(entry.logout_time) if entry.logout_time else None
+        } for entry in login_history
+    ]
+    return jsonify(success_response(history_data))
+
+@auth_routes.route('/user/<int:user_id>/login-history', methods=['GET'])
+@auth.login_required
+def get_user_login_history(user_id):
+    if g.user.id != user_id and g.user.role != 'admin':
+        return jsonify(error_response('You are not authorized to view this user\'s login history')), 403
+
+    login_history = LoginHistory.query.filter_by(user_id=user_id).order_by(LoginHistory.login_time.desc()).all()
+    history_data = [
+        {
+            'login_time': str(entry.login_time),
+            'logout_time': str(entry.logout_time) if entry.logout_time else None
+        } for entry in login_history
+    ]
+    return jsonify(success_response(history_data))
 
 @auth.verify_password
 def verify_password(username_or_token, password):
