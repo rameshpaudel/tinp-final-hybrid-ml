@@ -3,7 +3,7 @@ import jwt
 import datetime
 from flask import jsonify, g, request, current_app, Blueprint
 # werkzug allows -> headers, query args, form data, files, and cookies
-from models.user import User, LoginHistory
+from models.user import User
 from utils.main import db, auth
 
 webapp = Blueprint("frontend_pages", __name__)

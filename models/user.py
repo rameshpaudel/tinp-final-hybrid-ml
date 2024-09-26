@@ -17,8 +17,8 @@ class User(db.Model):
     auth_token = db.Column(db.String(500), nullable=True)
 
     #add relationship
-    login_history = db.relationship('LoginHistory', backref='user', lazy='dynamic')
-
+    
+    token = db.relationship("LoginToken", backref='user', lazy='dynamic')
     ##TODO : Add created at and updated at columns
 
     def hash_password(self, password):
@@ -40,7 +40,9 @@ class User(db.Model):
     @staticmethod
     def verify_auth_token(token):
         try:
-            data = jwt.decode(token, current_app.config['JWT_SECRET'])
+            
+            data = jwt.decode(token.strip(), current_app.config['JWT_SECRET'] , algorithms=["HS256"])
+            
             user = User.query.get(data['id'])
             if user.auth_token == token:
                 return user
@@ -51,7 +53,7 @@ class User(db.Model):
     @staticmethod
     def verify_is_admin(token):
         try:
-            data = jwt.decode(token, current_app.config['JWT_SECRET'])
+            data = jwt.decode(token, current_app.config['JWT_SECRET'],algorithm="HS256")
             user = User.query.get(data['id'])
             if user.role == 'admin':
                 return user
@@ -59,12 +61,11 @@ class User(db.Model):
         except:
             return None
         
-'''Stores user login history for each user'''
-class LoginHistory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    login_time = db.Column(db.DateTime, nullable=True)
-    logout_time = db.Column(db.DateTime, nullable=True)
-    
-    def __repr__(self):
-        return f"LoginHistory(user_id={self.user_id}, login_time={self.login_time}, logout_time={self.logout_time})"
+'''Stores user token with login history for each user'''    
+class LoginToken(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    token=db.Column(db.String(400))
+    user_id=db.Column(db.Integer,db.ForeignKey("users.id"), nullable=True)
+    blocked= db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, nullable=True, default=datetime.datetime.now())
+    revoked_at = db.Column(db.DateTime, nullable=True)

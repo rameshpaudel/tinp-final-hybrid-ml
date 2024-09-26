@@ -5,8 +5,8 @@ from flask import Flask
 from dotenv import load_dotenv
 # werkzug allows -> headers, query args, form data, files, and cookies
 from werkzeug.security import generate_password_hash, check_password_hash
-from utils.api_response import success_response,error_response
-from models.user import User
+from utils.api_response import success_message,error_response
+
 from utils.main import db, auth
 from routes.auth import auth_routes
 from routes.dashboard import dashboard_routes
@@ -29,6 +29,8 @@ app.config['JWT_SECRET'] =os.getenv('JWT_SECRET')
 
 #initialize db
 db.init_app(app)
+with app.app_context():
+        db.create_all()
 #Register the authentication routes
 app.register_blueprint(auth_routes)
 app.register_blueprint(dashboard_routes)
@@ -37,5 +39,5 @@ app.register_blueprint(frontend_routes)
 
 if __name__ == "__main__":
     #Auto create tables if it doesnot exist
-    # db.create_all()
+    
     app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
