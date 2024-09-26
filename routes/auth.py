@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from utils.api_response import success_response,error_response
 from models.user import User, LoginHistory
 from utils.main import db, auth
+from sqlalchemy import or_
 
 auth_routes = Blueprint("auth", __name__)
 
@@ -36,6 +37,10 @@ def register():
             email = request.json['email']
             username = request.json['username']
             password = request.json['password']
+            ##Check if the user already exists
+            user = User.query.filter(or_(User.username == username, User.email == email)).first()
+            if user:
+                return jsonify(error_response("User already exists")), 400
             hashed_password = generate_password_hash(password, method='sha256')
             new_user = User(username=username, password=hashed_password, email=email, role="user")
             db.session.add(new_user)

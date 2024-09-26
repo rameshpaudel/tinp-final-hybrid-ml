@@ -10,7 +10,7 @@ from models.user import User
 from utils.main import db, auth
 from routes.auth import auth_routes
 from routes.dashboard import dashboard_routes
-from routes.frontend import frontend_routes
+from routes.frontend import webapp as frontend_routes
 
 #Load environment variables
 load_dotenv()
@@ -36,4 +36,6 @@ app.register_blueprint(frontend_routes)
 
 
 if __name__ == "__main__":
+    #Auto create tables if it doesnot exist
+    # db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
