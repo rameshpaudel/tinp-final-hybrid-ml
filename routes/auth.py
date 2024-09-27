@@ -1,8 +1,7 @@
 
-import jwt
+import re
 import datetime
 from flask import jsonify, g, request, current_app, Blueprint
-# werkzug allows -> headers, query args, form data, files, and cookies
 from werkzeug.security import generate_password_hash, check_password_hash
 from utils.api_response import success_message,error_response, success_response
 from models.user import User,LoginToken
@@ -11,9 +10,10 @@ from sqlalchemy import or_
 
 auth_routes = Blueprint("auth", __name__)
 
-##Routes
+'''Login Routes for authenticating users'''
 @auth_routes.route('/login', methods=['POST'])
 def login():
+    #Get username and password from the request
     username = request.json.get('username')
     password = request.json.get('password')
 
@@ -41,6 +41,11 @@ def register():
             user = User.query.filter(or_(User.username == username, User.email == email)).first()
             if user:
                 return jsonify(error_response("User already exists")), 400
+            
+            password_validation = validate_password(password)
+            if password_validation is not True:
+                return jsonify(error_response(password_validation)), 400
+
             hashed_password = generate_password_hash(password, method='sha256')
             #Register a new generic user to the database
             new_user = User(username=username, password=hashed_password, email=email, role="user")
@@ -52,6 +57,7 @@ def register():
     except Exception as e:
         return jsonify(error_response(str(e))), 500
 
+'''Revoke tokens on user logout'''
 @auth_routes.route('/logout', methods=['POST'])
 @auth.login_required
 def logout():
@@ -75,7 +81,47 @@ def logout():
             return jsonify(success_message('Logged out successfully')), 200
     return jsonify(error_response('No token provided')), 401
 
+'''Change password of logged in user'''
+@auth_routes.route('/change-password', methods=['POST'])
+@auth.login_required
+def change_password():
+    try:
+        current_user_id = g.user.id
+        user = User.query.get(current_user_id)
 
+        if not user:
+            return jsonify(error_response("User not found")), 404
+
+        data = request.json
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not current_password or not new_password:
+            return jsonify(error_response("Current password and new password are required")), 400
+
+        # Verify current password
+        if not check_password_hash(user.password, current_password):
+            return jsonify(error_response("Current password is incorrect")), 401
+
+        # Validate new password
+        password_validation = validate_password(new_password)
+        if password_validation is not True:
+            return jsonify(error_response(password_validation)), 400
+
+        # Check if new password is different from the current one
+        if check_password_hash(user.password, new_password):
+            return jsonify(error_response("New password must be different from the current password")), 400
+
+        # Update password
+        user.password = generate_password_hash(new_password, method='sha256')
+        db.session.commit()
+
+        return jsonify(success_message( "Password changed successfully")), 200
+
+    except Exception as e:
+        return jsonify(error_response(str(e))), 500
+    
+'''Display the login history for current user'''
 @auth_routes.route('/login-history', methods=['GET'])
 @auth.login_required
 def get_login_history():
@@ -89,7 +135,8 @@ def get_login_history():
     ]
     return jsonify(success_response(history_data))
 
-#Get the login history of a user
+
+'''Display login history for any user when logged in as an administrator'''
 @auth_routes.route('/user/<int:user_id>/login-history', methods=['GET'])
 @auth.login_required
 def get_user_login_history(user_id):
@@ -105,7 +152,8 @@ def get_user_login_history(user_id):
     ]
     return jsonify(success_response(history_data))
 
-#Get the login history of a user
+
+'''Revoke the token of any user when logged in as an administrator'''
 @auth_routes.route('/user/login-history/<int:id>/revoke', methods=['PUT'])
 @auth.login_required
 def revoke_user_login_token(id):
@@ -117,6 +165,35 @@ def revoke_user_login_token(id):
     db.session.commit()
     return jsonify(success_response(login_token,message="Sucessfully revoked login token"))
 
+
+'''Validate a strong password'''
+def validate_password(password):
+    """
+    Validate the strength of a password.
+    Returns True if the password is strong, or a string describing the weakness if not.
+    """
+    if len(password) < 12:
+        return "Password must be at least 12 characters long"
+    
+    if not re.search(r'[A-Z]', password):
+        return "Password must include at least one uppercase letter"
+    
+    if not re.search(r'[a-z]', password):
+        return "Password must include at least one lowercase letter"
+    
+    if not re.search(r'\d', password):
+        return "Password must include at least one digit"
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return "Password must include at least one special character"
+    
+    # Check for common patterns
+    common_patterns = ['123', 'abc', 'qwerty', 'password', 'admin']
+    if any(pattern in password.lower() for pattern in common_patterns):
+        return "Password contains a common pattern and is too weak"
+    
+    return True
+'''Verify password for HttpBasicAuth'''
 # @auth.verify_password
 def verify_password(username_or_token, password):
     # first try to authenticate by token
@@ -138,3 +215,4 @@ def verify_token(token):
         g.user = user
         return True
     return False
+
