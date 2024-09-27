@@ -2,6 +2,10 @@
 
 Change `.env` configurations to configure environment variables
 
+## Steps to run the project
 
-## Run the project using 
+1) Install required dependencies
+```pip install -r requirements.txt```
+
+2) Run the project using 
 ```python app.py```

@@ -30,6 +30,7 @@ def login():
     else:
         return jsonify(error_response('No credentials')), 400
 
+'''Register a new user'''
 @auth_routes.route('/register', methods=['POST'])
 def register():
     try:

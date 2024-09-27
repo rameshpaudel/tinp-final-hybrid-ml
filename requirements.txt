@@ -7,3 +7,6 @@ python-dotenv==0.21.0
 Werkzeug==2.2.3
 python-dotenv==0.21.0
 mysqlclient==2.0.3
+python-magic==0.4.27
+pefile==2024.8.26
+user-agents==2.2.0

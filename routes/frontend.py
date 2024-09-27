@@ -28,7 +28,7 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
     try:
         pe = pefile.PE(file_path)
         
-        # Extract headers (DOS, File, Optional) as before
+        # Extract headers (DOS, File, Optional) 
         dos_header = {
             'e_magic': hex(pe.DOS_HEADER.e_magic),
             'e_lfanew': hex(pe.DOS_HEADER.e_lfanew)
