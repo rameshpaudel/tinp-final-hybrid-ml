@@ -10,3 +10,4 @@ mysqlclient==2.0.3
 python-magic==0.4.27
 pefile==2024.8.26
 user-agents==2.2.0
+skops=0.10.0

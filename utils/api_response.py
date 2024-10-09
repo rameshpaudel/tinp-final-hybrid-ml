@@ -2,7 +2,7 @@
 def success_message(message):
     return {'message': message, 'success': True}
 
-def success_response(data, message = None):
+def response_with_message(data, message = None):
     if message is not None:
         return {'data': data, 'message': message, 'success': True}
     return {'data': data, 'success': True}

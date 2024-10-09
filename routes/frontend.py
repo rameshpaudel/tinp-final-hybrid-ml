@@ -66,16 +66,16 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
         # Check if user is logged in
         if hasattr(g, 'user') and g.user and g.user.id:
             scan_data['user_id'] = g.user.id
-        else:
-            # Collect anonymous user data
-            user_agent = parse(request.user_agent.string)
-            scan_data['request_info'] = {
-                'ip_address': request.remote_addr,
-                'user_agent': str(user_agent),
-                'browser': user_agent.browser.family,
-                'os': user_agent.os.family,
-                'device': user_agent.device.family
-                }
+          
+        # Collect and track user data about browser
+        user_agent = parse(request.user_agent.string)
+        scan_data['request_info'] = {
+            'ip_address': request.remote_addr,
+            'user_agent': str(user_agent),
+            'browser': user_agent.browser.family,
+            'os': user_agent.os.family,
+            'device': user_agent.device.family
+            }
         
         try:
             scan = ScanHistory(**scan_data)
@@ -95,7 +95,7 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
         # Log this error for admin review
         return {'error': "An unexpected error occurred while processing the file"}
     
-    
+'''Scan a file'''
 @webapp.route('/scan/file', methods=['POST'])
 def upload_file():
     token = request.headers.get('Authorization', None)

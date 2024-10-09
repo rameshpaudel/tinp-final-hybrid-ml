@@ -3,7 +3,7 @@ import re
 import datetime
 from flask import jsonify, g, request, current_app, Blueprint
 from werkzeug.security import generate_password_hash, check_password_hash
-from utils.api_response import success_message,error_response, success_response
+from utils.api_response import success_message,error_response, response_with_message
 from models.user import User,LoginToken
 from utils.main import db, auth
 from sqlalchemy import or_
@@ -122,6 +122,7 @@ def change_password():
     except Exception as e:
         return jsonify(error_response(str(e))), 500
     
+    
 '''Display the login history for current user'''
 @auth_routes.route('/login-history', methods=['GET'])
 @auth.login_required
@@ -134,7 +135,7 @@ def get_login_history():
             'logout_time': str(entry.revoked_at) if entry.revoked_at else None
         } for entry in login_history
     ]
-    return jsonify(success_response(history_data))
+    return jsonify(response_with_message(history_data))
 
 
 '''Display login history for any user when logged in as an administrator'''
@@ -151,7 +152,7 @@ def get_user_login_history(user_id):
             'logout_time': str(entry.revoked_at) if entry.revoked_at else None
         } for entry in login_history
     ]
-    return jsonify(success_response(history_data))
+    return jsonify(response_with_message(history_data))
 
 
 '''Revoke the token of any user when logged in as an administrator'''
@@ -164,7 +165,7 @@ def revoke_user_login_token(id):
     login_token = LoginToken.query.filter_by(id=id).all()
     login_token.revoked_at =datetime.datetime.now()
     db.session.commit()
-    return jsonify(success_response(login_token,message="Sucessfully revoked login token"))
+    return jsonify(response_with_message(login_token,message="Sucessfully revoked login token"))
 
 
 '''Validate a strong password'''
@@ -194,6 +195,8 @@ def validate_password(password):
         return "Password contains a common pattern and is too weak"
     
     return True
+
+
 '''Verify password for HttpBasicAuth'''
 # @auth.verify_password
 def verify_password(username_or_token, password):
@@ -207,7 +210,7 @@ def verify_password(username_or_token, password):
     g.user = user
     return True
 
-##Verify the token for the user
+'''Verify the token for the user'''
 @auth.verify_token
 def verify_token(token):
     token = LoginToken.query.filter_by(token=token, blocked=False, revoked_at=None).first()
