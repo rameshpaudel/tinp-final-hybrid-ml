@@ -13,7 +13,7 @@ from flask import jsonify, g, request, current_app, Blueprint
 webapp = Blueprint("frontend_pages", __name__)
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {'exe', 'dll', 'sys'}
+ALLOWED_EXTENSIONS = {'exe', 'dll', 'sys', 'zip','pdf'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -28,26 +28,67 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
     try:
         pe = pefile.PE(file_path)
         
-        # Extract headers (DOS, File, Optional) 
+        # Extract DOS Header
         dos_header = {
             'e_magic': hex(pe.DOS_HEADER.e_magic),
+            'e_cblp': pe.DOS_HEADER.e_cblp,
+            'e_cp': pe.DOS_HEADER.e_cp,
+            'e_crlc': pe.DOS_HEADER.e_crlc,
+            'e_cparhdr': pe.DOS_HEADER.e_cparhdr,
+            'e_minalloc': pe.DOS_HEADER.e_minalloc,
+            'e_maxalloc': pe.DOS_HEADER.e_maxalloc,
+            'e_ss': pe.DOS_HEADER.e_ss,
+            'e_sp': pe.DOS_HEADER.e_sp,
+            'e_csum': pe.DOS_HEADER.e_csum,
+            'e_ip': pe.DOS_HEADER.e_ip,
+            'e_cs': pe.DOS_HEADER.e_cs,
+            'e_lfarlc': pe.DOS_HEADER.e_lfarlc,
+            'e_ovno': pe.DOS_HEADER.e_ovno,
+            'e_oemid': pe.DOS_HEADER.e_oemid,
+            'e_oeminfo': pe.DOS_HEADER.e_oeminfo,
             'e_lfanew': hex(pe.DOS_HEADER.e_lfanew)
         }
-        
+
+        # Extract File Header
         file_header = {
             'Machine': hex(pe.FILE_HEADER.Machine),
             'NumberOfSections': pe.FILE_HEADER.NumberOfSections,
             'TimeDateStamp': pe.FILE_HEADER.TimeDateStamp,
+            'PointerToSymbolTable': pe.FILE_HEADER.PointerToSymbolTable,
+            'NumberOfSymbols': pe.FILE_HEADER.NumberOfSymbols,
+            'SizeOfOptionalHeader': pe.FILE_HEADER.SizeOfOptionalHeader,
             'Characteristics': hex(pe.FILE_HEADER.Characteristics)
         }
-        
+
+        # Extract Optional Header
         optional_header = {
             'Magic': hex(pe.OPTIONAL_HEADER.Magic),
             'MajorLinkerVersion': pe.OPTIONAL_HEADER.MajorLinkerVersion,
             'MinorLinkerVersion': pe.OPTIONAL_HEADER.MinorLinkerVersion,
             'SizeOfCode': pe.OPTIONAL_HEADER.SizeOfCode,
+            'SizeOfInitializedData': pe.OPTIONAL_HEADER.SizeOfInitializedData,
+            'SizeOfUninitializedData': pe.OPTIONAL_HEADER.SizeOfUninitializedData,
             'AddressOfEntryPoint': hex(pe.OPTIONAL_HEADER.AddressOfEntryPoint),
-            'ImageBase': hex(pe.OPTIONAL_HEADER.ImageBase)
+            'BaseOfCode': hex(pe.OPTIONAL_HEADER.BaseOfCode),
+            'ImageBase': hex(pe.OPTIONAL_HEADER.ImageBase),
+            'SectionAlignment': pe.OPTIONAL_HEADER.SectionAlignment,
+            'FileAlignment': pe.OPTIONAL_HEADER.FileAlignment,
+            'MajorOperatingSystemVersion': pe.OPTIONAL_HEADER.MajorOperatingSystemVersion,
+            'MinorOperatingSystemVersion': pe.OPTIONAL_HEADER.MinorOperatingSystemVersion,
+            'MajorImageVersion': pe.OPTIONAL_HEADER.MajorImageVersion,
+            'MinorImageVersion': pe.OPTIONAL_HEADER.MinorImageVersion,
+            'MajorSubsystemVersion': pe.OPTIONAL_HEADER.MajorSubsystemVersion,
+            'MinorSubsystemVersion': pe.OPTIONAL_HEADER.MinorSubsystemVersion,
+            'SizeOfImage': pe.OPTIONAL_HEADER.SizeOfImage,
+            'SizeOfHeaders': pe.OPTIONAL_HEADER.SizeOfHeaders,
+            'CheckSum': pe.OPTIONAL_HEADER.CheckSum,
+            'Subsystem': hex(pe.OPTIONAL_HEADER.Subsystem),
+            'DllCharacteristics': hex(pe.OPTIONAL_HEADER.DllCharacteristics),
+            'SizeOfStackReserve': pe.OPTIONAL_HEADER.SizeOfStackReserve,
+            'SizeOfHeapReserve': pe.OPTIONAL_HEADER.SizeOfHeapReserve,
+            'SizeOfHeapCommit': pe.OPTIONAL_HEADER.SizeOfHeapCommit,
+            'LoaderFlags': hex(pe.OPTIONAL_HEADER.LoaderFlags),
+            'NumberOfRvaAndSizes': pe.OPTIONAL_HEADER.NumberOfRvaAndSizes
         }
         
         results = {
