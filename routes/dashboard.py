@@ -1,9 +1,10 @@
 
 import jwt
+import ast
 import datetime
 from flask import jsonify, g, request, current_app, Blueprint
 from utils.api_response import response_with_message
-
+from models.training import Training
 from models.user import User
 from models.scans import ScanHistory
 from utils.main import db, auth
@@ -47,4 +48,15 @@ def get_all_scan_history():
             scan_list.append(scan.to_dict())
     
     return jsonify(response_with_message(data=scan_list, message="Sucessfully crawled scan history"))
+    
+
+'''Get reports about current running model'''
+@auth.login_required(role='admin')
+@dashboard_routes.route('/model-reports', methods=['GET'])
+def get_current_pe_model_report():
+    reports = Training.query.order_by(Training.created_at.desc()).first()
+    #Convert into json
+    result = ast.literal_eval(reports.results)
+    ##Return the model report information 
+    return response_with_message(result, message="Displaying model reports")
     
