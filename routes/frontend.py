@@ -9,7 +9,7 @@ from user_agents import parse
 from models.scans import ScanHistory
 from sqlalchemy.exc import SQLAlchemyError
 from flask import jsonify, g, request, current_app, Blueprint
-
+from routes.training import predict
 webapp = Blueprint("frontend_pages", __name__)
 
 # Allowed file extensions
@@ -30,7 +30,7 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
         
         # Extract DOS Header
         dos_header = {
-            'e_magic': hex(pe.DOS_HEADER.e_magic),
+            'e_magic': pe.DOS_HEADER.e_magic,
             'e_cblp': pe.DOS_HEADER.e_cblp,
             'e_cp': pe.DOS_HEADER.e_cp,
             'e_crlc': pe.DOS_HEADER.e_crlc,
@@ -46,31 +46,31 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
             'e_ovno': pe.DOS_HEADER.e_ovno,
             'e_oemid': pe.DOS_HEADER.e_oemid,
             'e_oeminfo': pe.DOS_HEADER.e_oeminfo,
-            'e_lfanew': hex(pe.DOS_HEADER.e_lfanew)
+            'e_lfanew': pe.DOS_HEADER.e_lfanew
         }
 
         # Extract File Header
         file_header = {
-            'Machine': hex(pe.FILE_HEADER.Machine),
+            'Machine': pe.FILE_HEADER.Machine,
             'NumberOfSections': pe.FILE_HEADER.NumberOfSections,
             'TimeDateStamp': pe.FILE_HEADER.TimeDateStamp,
             'PointerToSymbolTable': pe.FILE_HEADER.PointerToSymbolTable,
             'NumberOfSymbols': pe.FILE_HEADER.NumberOfSymbols,
             'SizeOfOptionalHeader': pe.FILE_HEADER.SizeOfOptionalHeader,
-            'Characteristics': hex(pe.FILE_HEADER.Characteristics)
+            'Characteristics': pe.FILE_HEADER.Characteristics
         }
 
         # Extract Optional Header
         optional_header = {
-            'Magic': hex(pe.OPTIONAL_HEADER.Magic),
+            'Magic': pe.OPTIONAL_HEADER.Magic,
             'MajorLinkerVersion': pe.OPTIONAL_HEADER.MajorLinkerVersion,
             'MinorLinkerVersion': pe.OPTIONAL_HEADER.MinorLinkerVersion,
             'SizeOfCode': pe.OPTIONAL_HEADER.SizeOfCode,
             'SizeOfInitializedData': pe.OPTIONAL_HEADER.SizeOfInitializedData,
             'SizeOfUninitializedData': pe.OPTIONAL_HEADER.SizeOfUninitializedData,
-            'AddressOfEntryPoint': hex(pe.OPTIONAL_HEADER.AddressOfEntryPoint),
-            'BaseOfCode': hex(pe.OPTIONAL_HEADER.BaseOfCode),
-            'ImageBase': hex(pe.OPTIONAL_HEADER.ImageBase),
+            'AddressOfEntryPoint': pe.OPTIONAL_HEADER.AddressOfEntryPoint,
+            'BaseOfCode': pe.OPTIONAL_HEADER.BaseOfCode,
+            'ImageBase': pe.OPTIONAL_HEADER.ImageBase,
             'SectionAlignment': pe.OPTIONAL_HEADER.SectionAlignment,
             'FileAlignment': pe.OPTIONAL_HEADER.FileAlignment,
             'MajorOperatingSystemVersion': pe.OPTIONAL_HEADER.MajorOperatingSystemVersion,
@@ -82,13 +82,14 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
             'SizeOfImage': pe.OPTIONAL_HEADER.SizeOfImage,
             'SizeOfHeaders': pe.OPTIONAL_HEADER.SizeOfHeaders,
             'CheckSum': pe.OPTIONAL_HEADER.CheckSum,
-            'Subsystem': hex(pe.OPTIONAL_HEADER.Subsystem),
-            'DllCharacteristics': hex(pe.OPTIONAL_HEADER.DllCharacteristics),
+            'Subsystem': pe.OPTIONAL_HEADER.Subsystem,
+            'DllCharacteristics': pe.OPTIONAL_HEADER.DllCharacteristics,
             'SizeOfStackReserve': pe.OPTIONAL_HEADER.SizeOfStackReserve,
             'SizeOfHeapReserve': pe.OPTIONAL_HEADER.SizeOfHeapReserve,
             'SizeOfHeapCommit': pe.OPTIONAL_HEADER.SizeOfHeapCommit,
-            'LoaderFlags': hex(pe.OPTIONAL_HEADER.LoaderFlags),
-            'NumberOfRvaAndSizes': pe.OPTIONAL_HEADER.NumberOfRvaAndSizes
+            'LoaderFlags': pe.OPTIONAL_HEADER.LoaderFlags,
+            'NumberOfRvaAndSizes': pe.OPTIONAL_HEADER.NumberOfRvaAndSizes,
+            'Reserved1': pe.OPTIONAL_HEADER.Reserved1
         }
         
         results = {
@@ -127,7 +128,7 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
             print(f"Database error: {str(db_error)}")
             # Log this error for admin review
             
-        return results
+        return {**dos_header, **file_header, **optional_header}
     
     except pefile.PEFormatError as e:
         return {'error': f"Not a valid PE file - {str(e)}"}
@@ -136,14 +137,12 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
         # Log this error for admin review
         return {'error': "An unexpected error occurred while processing the file"}
     
-'''Scan a file'''
+'''Scan a file and get malware analysis'''
 @webapp.route('/scan/file', methods=['POST'])
 def upload_file():
     token = request.headers.get('Authorization', None)
     if token:
-        
         token = token.split()[1]
-        print(token)
         user = User.verify_auth_token(token)
         g.user = user
         
@@ -181,7 +180,7 @@ def upload_file():
             if os.path.exists(file_path):
                 os.remove(file_path)
         
-        return jsonify(headers)
+        return jsonify(predict(headers))
     else:
         return jsonify({'error': 'File type not allowed'}), 400
     

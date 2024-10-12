@@ -8,5 +8,6 @@ class Training(db.Model):
     dataset_for = db.Column(db.String(10), nullable=True)
     classification_report = db.Column(db.JSON, nullable=True)
     training_results=db.Column(db.JSON,nullable=True)
+    results=db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.now())
     
