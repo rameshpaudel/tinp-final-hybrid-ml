@@ -64,7 +64,7 @@ def train_model(filepath):
     y_encoded = le.fit_transform(y)
     
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.7, random_state=48)
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.6, random_state=48)
 
 
     # Initialize individual models
@@ -92,6 +92,7 @@ def train_model(filepath):
     
     # Train the voting classifier
     voting_model.fit(X_train, y_train)
+    #Save the model to the filesystem
     sio.dump(le, "uploads/model/label_encoder.skops", compression=ZIP_DEFLATED, compresslevel=9)
 
     # Save the model using skops
@@ -136,7 +137,7 @@ def train_model(filepath):
 
 
 ## Predict the probability of the malware
-def predict(json_input, model_file):
+def predict_file(json_input, model_file):
     BASE_PATH = "uploads/model/"
     model_path = f"{BASE_PATH}{model_file}"
     unknown_types_model = sio.get_untrusted_types(file=model_path)

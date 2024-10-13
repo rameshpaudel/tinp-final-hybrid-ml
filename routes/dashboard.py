@@ -51,11 +51,21 @@ def get_all_scan_history():
     return jsonify(respond_success_data(data=scan_list, message="Sucessfully crawled scan history"))
     
 
-'''Get reports about current running model'''
+'''Get reports about current running pe model'''
 @auth.login_required(role='admin')
 @dashboard_routes.route('/model-reports', methods=['GET'])
 def get_current_pe_model_report():
-    reports = Training.query.order_by(Training.created_at.desc()).first()
+    reports = Training.query.filter_by(dataset_for="pe_file").order_by(Training.created_at.desc()).first()
+    #Convert into json
+    result = ast.literal_eval(reports.results)
+    ##Return the model report information 
+    return respond_success_data(result, message="Displaying model reports")
+
+'''Get reports about current running pe model'''
+@auth.login_required(role='admin')
+@dashboard_routes.route('/url-model-reports', methods=['GET'])
+def get_current_url_model_report():
+    reports = Training.query.filter_by(dataset_for="url").order_by(Training.created_at.desc()).first()
     #Convert into json
     result = ast.literal_eval(reports.results)
     ##Return the model report information 

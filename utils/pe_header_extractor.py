@@ -82,13 +82,7 @@ def get_pefile_headers(original_filename, hashed_filename, file_path):
             'NumberOfRvaAndSizes': pe.OPTIONAL_HEADER.NumberOfRvaAndSizes,
             'Reserved1': pe.OPTIONAL_HEADER.Reserved1
         }
-        
-        results = {
-            'DOS_HEADER': dos_header,
-            'FILE_HEADER': file_header,
-            'OPTIONAL_HEADER': optional_header
-        }
-        
+                
         # Prepare scan history data
         scan_data = {
             'file_name': original_filename,

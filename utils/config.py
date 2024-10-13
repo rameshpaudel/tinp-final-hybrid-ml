@@ -22,6 +22,7 @@ class Config:
         f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
         "?unix_socket=/var/run/mysqld/mysqld.sock"
     )
+    SESSION_TYPE = "filesystem"
 
 class DevelopmentConfig(Config):
     """Development config."""

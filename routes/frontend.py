@@ -2,25 +2,63 @@
 import os
 import uuid
 from utils.main import db,auth
+from user_agents import parse
 from utils.pe_header_extractor import get_pefile_headers,allowed_file,is_pe_file
 from models.user import User
 from models.training import Training
 from models.scans import ScanHistory
 from sqlalchemy.exc import SQLAlchemyError
 from flask import jsonify, g, request, current_app, Blueprint
-from utils.pe_train_predict import predict
+from utils.pe_train_predict import predict_file
+from utils.url_train_predict import predict_url
 
 webapp = Blueprint("frontend_pages", __name__)
-    
-'''Scan a file and get malware analysis'''
-@webapp.route('/scan/file', methods=['POST'])
-def scan_and_predict():
+
+def get_logged_in_user():
     #Check user is logged in
     token = request.headers.get('Authorization', None)
     if token:
         token = token.split()[1]
         user = User.verify_auth_token(token)
         g.user = user
+        
+'''Scan and predict the results from pe_header input directly'''
+@webapp.route('/scan/pe_header', methods=["POST"])
+def predict_from_pe():
+    pe_headers = request.get_json()
+
+    latest_model = Training.query.filter_by(dataset_for="pe_file").order_by(Training.created_at.desc()).first()
+    prediction = predict_file(pe_headers, latest_model.model_file)
+    scan_data = {
+        "file_name": "PE_HEADERS_ONLY",
+        "hashed_name": "PE_HEADERS_ONLY",
+        "details": pe_headers
+    }
+    # Collect and track user data about browser
+    user_agent = parse(request.user_agent.string)
+    scan_data['request_info'] = {
+        'ip_address': request.remote_addr,
+        'user_agent': str(user_agent),
+        'browser': user_agent.browser.family,
+        'os': user_agent.os.family,
+        'device': user_agent.device.family
+        }
+    try:
+        scan = ScanHistory(**scan_data)
+        scan.results = prediction
+        db.session.add(scan)
+        db.session.commit()
+    except SQLAlchemyError as db_error:
+        db.session.rollback()
+        print(f"Database error: {str(db_error)}")
+        # Log this error for admin review
+    return jsonify(prediction),200
+    
+    
+'''Scan a file and get malware analysis'''
+@webapp.route('/scan/file', methods=['POST'])
+def scan_and_predict():
+    get_logged_in_user()
 
     # Check if the post request has the file part
     if 'file' not in request.files:
@@ -56,8 +94,8 @@ def scan_and_predict():
             if os.path.exists(file_path):
                 os.remove(file_path)
                 
-        latest_model = Training.query.order_by(Training.created_at.desc()).first()
-        prediction = predict(pe_headers, latest_model.model_file)
+        latest_model = Training.query.filter_by(dataset_for="pe_file").order_by(Training.created_at.desc()).first()
+        prediction = predict_file(pe_headers, latest_model.model_file)
         
         try:
             scan = ScanHistory(**scan_data)
@@ -72,12 +110,26 @@ def scan_and_predict():
     else:
         return jsonify({'error': 'File type not allowed'}), 400
 
+
+'''Scan the url and return the classification of url'''
 @webapp.route('/scan_url', methods=['POST'])
 def scan_url():
-    return {
-        "malware_analysed" : 200,
-        "total_scans": 300
-    }
+    # Check if the user is logged in
+    get_logged_in_user()
+    latest_model = Training.query.filter_by(dataset_for="url").order_by(Training.created_at.desc()).first()
+    
+    # Extract the URL from the request
+    data = request.json  # or request.form if it's a form submission
+    url = data.get('url')
+    
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+    
+    # Call the prediction function
+    result = predict_url(url, latest_model)
+    
+    return jsonify(result)
+
 
 #Get user stats about the scan
 @auth.login_required()
@@ -90,6 +142,6 @@ def current_user_stats():
         user = User.verify_auth_token(token)
         user_id = user.id
     return {
-        "malware_analysed" : 200,
+        "malware_found" : 200,
         "total_scans": ScanHistory.get_total_scans(user_id=user_id)
     }
