@@ -3,7 +3,7 @@ import jwt
 import ast
 import datetime
 from flask import jsonify, g, request, current_app, Blueprint
-from utils.api_response import response_with_message
+from utils.api_response import respond_success_data
 from models.training import Training
 from models.user import User
 from models.scans import ScanHistory
@@ -17,9 +17,10 @@ dashboard_routes = Blueprint("dashboard_routes", __name__, url_prefix="/dashboar
 @auth.login_required(role='admin')
 @dashboard_routes.route('/stats', methods=['GET'])
 def dash_stats():
+    
     return {
         "malware_analysed" : 200,
-        "total_scans": 300
+        "total_scans": ScanHistory.get_total_scans()
     }
 
 '''Get the users list'''
@@ -29,14 +30,14 @@ def get_users():
     users_list = []
     for user in User.query.all():
             users_list.append(user.to_dict())
-    return response_with_message(data=users_list),200
+    return respond_success_data(data=users_list),200
 
 '''Get individual user's information when id is provided '''
 @auth.login_required(role='admin')
 @dashboard_routes.route('/user/<int:user_id>', methods=['GET'])   
 def get_single_user(user_id):
     user = User.query.filter_by(id=user_id).one()
-    return response_with_message(user.to_dict()),200
+    return respond_success_data(user.to_dict()),200
     
     
 '''Get all the scan history in the application'''
@@ -47,7 +48,7 @@ def get_all_scan_history():
     for scan in ScanHistory.query.all():
             scan_list.append(scan.to_dict())
     
-    return jsonify(response_with_message(data=scan_list, message="Sucessfully crawled scan history"))
+    return jsonify(respond_success_data(data=scan_list, message="Sucessfully crawled scan history"))
     
 
 '''Get reports about current running model'''
@@ -58,5 +59,5 @@ def get_current_pe_model_report():
     #Convert into json
     result = ast.literal_eval(reports.results)
     ##Return the model report information 
-    return response_with_message(result, message="Displaying model reports")
+    return respond_success_data(result, message="Displaying model reports")
     
