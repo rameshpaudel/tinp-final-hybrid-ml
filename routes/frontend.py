@@ -4,10 +4,11 @@ import uuid
 from utils.main import db,auth
 from utils.pe_header_extractor import get_pefile_headers,allowed_file,is_pe_file
 from models.user import User
+from models.training import Training
 from models.scans import ScanHistory
 from sqlalchemy.exc import SQLAlchemyError
 from flask import jsonify, g, request, current_app, Blueprint
-from routes.training import predict
+from utils.train_model import predict
 
 webapp = Blueprint("frontend_pages", __name__)
     
@@ -20,10 +21,10 @@ def upload_file():
         token = token.split()[1]
         user = User.verify_auth_token(token)
         g.user = user
-        
+
     # Check if the post request has the file part
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
+        return jsonify({'error': 'No file part found in the request'}), 400
 
     file = request.files['file']
     
@@ -55,7 +56,8 @@ def upload_file():
             if os.path.exists(file_path):
                 os.remove(file_path)
                 
-        prediction = predict(pe_headers)
+        latest_model = Training.query.order_by(Training.created_at.desc()).first()
+        prediction = predict(pe_headers, latest_model.model_file)
         
         try:
             scan = ScanHistory(**scan_data)

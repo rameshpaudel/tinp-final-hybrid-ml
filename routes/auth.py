@@ -3,7 +3,7 @@ import re
 import datetime
 from flask import jsonify, g, request, current_app, Blueprint
 from werkzeug.security import generate_password_hash, check_password_hash
-from utils.api_response import success_message,error_response, response_with_message
+from utils.api_response import success_message,error_response, respond_success_data
 from models.user import User,LoginToken
 from utils.main import db, auth
 from sqlalchemy import or_
@@ -135,7 +135,7 @@ def get_login_history():
             'logout_time': str(entry.revoked_at) if entry.revoked_at else None
         } for entry in login_history
     ]
-    return jsonify(response_with_message(history_data))
+    return jsonify(respond_success_data(history_data))
 
 
 '''Display login history for any user when logged in as an administrator'''
@@ -152,7 +152,7 @@ def get_user_login_history(user_id):
             'logout_time': str(entry.revoked_at) if entry.revoked_at else None
         } for entry in login_history
     ]
-    return jsonify(response_with_message(history_data))
+    return jsonify(respond_success_data(history_data))
 
 
 '''Revoke the token of any user when logged in as an administrator'''
@@ -165,7 +165,15 @@ def revoke_user_login_token(id):
     login_token = LoginToken.query.filter_by(id=id).all()
     login_token.revoked_at =datetime.datetime.now()
     db.session.commit()
-    return jsonify(response_with_message(login_token,message="Sucessfully revoked login token"))
+    return jsonify(respond_success_data(login_token,message="Sucessfully revoked login token"))
+
+'''Get current logged in user'''
+@auth_routes.route('/current-user', methods=['GET'])
+@auth.login_required
+def get_logged_in_user():
+    if g.user is not None:
+        return jsonify(respond_success_data(data=g.user.to_dict() , message="User is logged in"))
+    return jsonify(error_response("User is not logged in"))
 
 
 '''Validate a strong password'''
