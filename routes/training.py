@@ -1,20 +1,10 @@
-from operator import index
 import os
-
-import numpy as np
-import pandas as pd
-import json
-from flask import Flask, request, jsonify, Blueprint,current_app
-from sklearn.model_selection import train_test_split
-
-from sklearn.preprocessing import LabelEncoder
-
+from flask import request, jsonify, Blueprint,current_app
 import skops.io as sio
 from werkzeug.utils import secure_filename 
 from models.training import Training
-from utils.train_model import train_model
+from utils.pe_train_predict import train_model
 from zipfile import ZIP_DEFLATED
-from utils.api_response import respond_success_data
 from utils.main import db
 
 

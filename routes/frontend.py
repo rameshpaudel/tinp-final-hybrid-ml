@@ -8,13 +8,13 @@ from models.training import Training
 from models.scans import ScanHistory
 from sqlalchemy.exc import SQLAlchemyError
 from flask import jsonify, g, request, current_app, Blueprint
-from utils.train_model import predict
+from utils.pe_train_predict import predict
 
 webapp = Blueprint("frontend_pages", __name__)
     
 '''Scan a file and get malware analysis'''
 @webapp.route('/scan/file', methods=['POST'])
-def upload_file():
+def scan_and_predict():
     #Check user is logged in
     token = request.headers.get('Authorization', None)
     if token:
