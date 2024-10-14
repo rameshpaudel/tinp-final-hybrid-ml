@@ -71,3 +71,17 @@ def get_current_url_model_report():
     ##Return the model report information 
     return respond_success_data(result, message="Displaying model reports")
     
+
+@dashboard_routes.route('/list-models', methods=['GET'])
+def list_all_trained_models():
+    train = Training.query.all()
+    results = [
+        {
+            'model_file': entry.model_file,
+            'dataset_for': entry.dataset_for,
+            'classification_report': entry.classification_report,
+            'training_results': entry.training_results,
+            'results': entry.results
+        } for entry in train
+    ]
+    return results
