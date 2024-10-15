@@ -18,6 +18,8 @@ from utils.api_response import success_message
 from urllib.parse import urlparse
 import re
 from tld import get_tld
+from scipy.sparse import hstack, csr_matrix
+
 
 def extract_url_features(url):
     features = {}
@@ -69,41 +71,35 @@ def train_url_model(filepath):
     if 'type' not in data.columns:
         return jsonify({"error": "CSV file is missing the required 'Type' column"}), 400
 
-    # Initialize the Label Encoder
     le = LabelEncoder()
-
-    # Encode the 'type' column (phishing, benign, defacement, malware)
     data['type'] = le.fit_transform(data['type'])
 
-    # Extract features
+    # Extract features from URLs
     features_df = data['url'].apply(extract_url_features).apply(pd.Series)
     
-    # Feature Extraction using TfidfVectorizer
+    # Apply TfidfVectorizer to URLs
     vectorizer = TfidfVectorizer(max_features=10000)
     X_tfidf = vectorizer.fit_transform(data['url'])
-    
-    # Combine TfidfVectorizer features with extracted features
-    X = np.hstack((X_tfidf.toarray(), features_df.values))
-    y = data['type']
-    
-    # Save the fitted vectorizer
+
+    # Save vectorizer for later use
     sio.dump(vectorizer, "uploads/model/url_vectorizer.skops", compression=ZIP_DEFLATED, compresslevel=9)
+
+    # Combine sparse TF-IDF matrix with dense feature DataFrame
+    X_features = features_df.drop(['tld', 'domain'], axis=1)  # Drop non-numeric columns
+    X_combined = hstack([X_tfidf, X_features.values], format='csr')  # Use sparse matrix hstack
     
-    print("Vectorized the data")
-    print(X.shape)
+    y = data['type']
 
     # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.7, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X_combined, y, test_size=0.7, random_state=42)
 
     # Define individual models
     dt = DecisionTreeClassifier()
     rf_model = RandomForestClassifier(n_jobs=-1)
 
-    # Create the Voting Classifier
-    voting_clf = VotingClassifier(estimators=[
-        ('dt', dt),
-        ('rf', rf_model),
-    ], voting='soft')
+    # Create Voting Classifier
+    voting_clf = VotingClassifier(estimators=[('dt', dt), ('rf', rf_model)], voting='soft')
+
 
     models = {
         "Decision Tree": dt,
@@ -163,18 +159,23 @@ def predict_url(url_input, model_file):
     if not isinstance(le, LabelEncoder):
         raise TypeError("The loaded 'le' object is not a LabelEncoder")
     
-    # Extract features from the URL
+      # Extract features from the input URL
     url_features = extract_url_features(url_input)
-    
-    # Transform the URL using TfidfVectorizer
-    X_tfidf = vectorizer.transform([url_input])
-    
-    # Combine TfidfVectorizer features with extracted features
-    X = np.hstack((X_tfidf.toarray(), np.array(list(url_features.values())).reshape(1, -1)))
+    X_tfidf = vectorizer.transform([url_input])  # Transform using TF-IDF
 
-    # Make predictions
-    y_pred = model.predict(X)
-    y_pred_proba = model.predict_proba(X)
+    # Convert URL features into a 2D array
+    X_features = pd.DataFrame([url_features]).drop(['tld', 'domain'], axis=1).values
+    X_features_sparse = csr_matrix(X_features)  # Convert to sparse matrix
+
+    # Combine TF-IDF and URL features
+    X_combined = hstack([X_tfidf, X_features_sparse], format='csr')
+
+    # Handle NaN/infinity values
+    X_combined = csr_matrix(np.nan_to_num(X_combined.toarray(), nan=0.0, posinf=0.0, neginf=0.0))
+
+    # Predict with the loaded model
+    y_pred = model.predict(X_combined)
+    y_pred_proba = model.predict_proba(X_combined)
 
     confidence_scores = np.max(y_pred_proba, axis=1)
 
@@ -193,4 +194,4 @@ def predict_url(url_input, model_file):
         }
         results.append(result)
 
-    return results
+    return results[0]
