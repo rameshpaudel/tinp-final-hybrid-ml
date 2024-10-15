@@ -37,3 +37,15 @@ class ScanHistory(BaseModel):
         if user_id:
                 return db.session.query(func.count(ScanHistory.id)).filter_by(user_id=user_id).scalar()
         return db.session.query(func.count(ScanHistory.id)).scalar()
+
+'''Displays the scan history of each url and their result'''   
+class URLScanHistory(db.Model):
+    __tablename__ = "url_scan_history"
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(150), index=True)
+    results = db.Column(db.Text, nullable=True)
+    details = db.Column(db.JSON, nullable=True)
+    request_info = db.Column(db.JSON, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    status = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.now())

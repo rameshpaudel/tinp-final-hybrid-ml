@@ -1,12 +1,13 @@
 
 import os
 import uuid
+import ast
 from utils.main import db,auth
 from user_agents import parse
 from utils.pe_header_extractor import get_pefile_headers,allowed_file,is_pe_file
 from models.user import User
 from models.training import Training
-from models.scans import ScanHistory
+from models.scans import ScanHistory, URLScanHistory
 from sqlalchemy.exc import SQLAlchemyError
 from flask import jsonify, g, request, current_app, Blueprint
 from utils.pe_train_predict import predict_file
@@ -14,6 +15,15 @@ from utils.url_train_predict import predict_url
 
 webapp = Blueprint("frontend_pages", __name__)
 
+def get_user_agent_info(user_agent):
+    user_agent = parse(user_agent.string)
+    return {
+        'ip_address': request.remote_addr,
+        'user_agent': str(user_agent),
+        'browser': user_agent.browser.family,
+        'os': user_agent.os.family,
+        'device': user_agent.device.family
+    }
 def get_logged_in_user():
     #Check user is logged in
     token = request.headers.get('Authorization', None)
@@ -35,14 +45,7 @@ def predict_from_pe():
         "details": pe_headers
     }
     # Collect and track user data about browser
-    user_agent = parse(request.user_agent.string)
-    scan_data['request_info'] = {
-        'ip_address': request.remote_addr,
-        'user_agent': str(user_agent),
-        'browser': user_agent.browser.family,
-        'os': user_agent.os.family,
-        'device': user_agent.device.family
-        }
+    scan_data['request_info'] = get_user_agent_info(request.user_agent)
     try:
         scan = ScanHistory(**scan_data)
         scan.results = prediction
@@ -112,12 +115,14 @@ def scan_and_predict():
 
 
 '''Scan the url and return the classification of url'''
-@webapp.route('/scan_url', methods=['POST'])
+@webapp.route('/scan/url', methods=['POST'])
 def scan_url():
     # Check if the user is logged in
     get_logged_in_user()
     latest_model = Training.query.filter_by(dataset_for="url").order_by(Training.created_at.desc()).first()
-    
+    user_id = None
+    if g.user is not None:
+        user_id = g.user.id
     # Extract the URL from the request
     data = request.json  # or request.form if it's a form submission
     url = data.get('url')
@@ -126,7 +131,20 @@ def scan_url():
         return jsonify({"error": "URL is required"}), 400
     
     # Call the prediction function
-    result = predict_url(url, latest_model)
+    result = predict_url(url, latest_model.model_file)
+    
+
+    # Save the scan to the database
+    url_scan = URLScanHistory(
+        url = url,
+        results = str(result),
+        details = ast.literal_eval(result),
+        request_info = get_user_agent_info(request.user_agent),
+        user_id = user_id,
+        status = result['prediction']
+    )
+    db.session.add(url_scan)
+    db.session.commit()
     
     return jsonify(result)
 
