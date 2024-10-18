@@ -39,6 +39,8 @@ class ScanHistory(BaseModel):
         return db.session.query(func.count(ScanHistory.id)).scalar()
 
 '''Displays the scan history of each url and their result'''   
+
+
 class URLScanHistory(db.Model):
     __tablename__ = "url_scan_history"
     id = db.Column(db.Integer, primary_key=True)

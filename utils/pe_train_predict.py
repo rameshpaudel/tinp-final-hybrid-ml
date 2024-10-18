@@ -70,7 +70,7 @@ def train_model(filepath):
 
     # Initialize individual models
     rf_model = RandomForestClassifier(n_estimators=80, random_state=42)
-    # svm_model = SVC(probability=True, random_state=42)
+    dt_model = DecisionTreeClassifier(random_state=42)
     gbm_model = GradientBoostingClassifier(random_state=42)
 
 
@@ -78,7 +78,7 @@ def train_model(filepath):
     voting_model = VotingClassifier(
         estimators=[
             ('rf', rf_model), 
-            # ('svm', svm_model), 
+            ('dt', dt_model), 
             ('gbm', gbm_model)
             ],
         voting='soft'
@@ -89,7 +89,7 @@ def train_model(filepath):
     rf_model.fit(X_train, y_train)
     
     #Fit the SVM model
-    # svm_model.fit(X_train, y_train)
+    dt_model.fit(X_train, y_train)
 
     #Fit the Decision Tree model
     gbm_model.fit(X_train, y_train)
@@ -106,7 +106,7 @@ def train_model(filepath):
     # Calculate accuracies and metrics for individual models and voting classifier
     models = {
         "Random Forest": rf_model,
-        # "SVM": svm_model,
+        "Decision Tree": svm_model,
         "Gradient Boosting": gbm_model,
         "Voting Classifier": voting_model
     }

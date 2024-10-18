@@ -71,35 +71,41 @@ def train_url_model(filepath):
     if 'type' not in data.columns:
         return jsonify({"error": "CSV file is missing the required 'Type' column"}), 400
 
+    # Initialize the Label Encoder
     le = LabelEncoder()
+
+    # Encode the 'type' column (phishing, benign, defacement, malware)
     data['type'] = le.fit_transform(data['type'])
 
-    # Extract features from URLs
+    # Extract features
     features_df = data['url'].apply(extract_url_features).apply(pd.Series)
     
-    # Apply TfidfVectorizer to URLs
+    # Feature Extraction using TfidfVectorizer
     vectorizer = TfidfVectorizer(max_features=10000)
     X_tfidf = vectorizer.fit_transform(data['url'])
-
-    # Save vectorizer for later use
-    sio.dump(vectorizer, "uploads/model/url_vectorizer.skops", compression=ZIP_DEFLATED, compresslevel=9)
-
-    # Combine sparse TF-IDF matrix with dense feature DataFrame
-    X_features = features_df.drop(['tld', 'domain'], axis=1)  # Drop non-numeric columns
-    X_combined = hstack([X_tfidf, X_features.values], format='csr')  # Use sparse matrix hstack
     
+    # Combine TfidfVectorizer features with extracted features
+    X = np.hstack((X_tfidf.toarray(), features_df.values))
     y = data['type']
+    
+    # Save the fitted vectorizer
+    sio.dump(vectorizer, "uploads/model/url_vectorizer.skops", compression=ZIP_DEFLATED, compresslevel=9)
+    
+    print("Vectorized the data")
+    print(X.shape)
 
     # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X_combined, y, test_size=0.7, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.7, random_state=42)
 
     # Define individual models
     dt = DecisionTreeClassifier()
     rf_model = RandomForestClassifier(n_jobs=-1)
 
-    # Create Voting Classifier
-    voting_clf = VotingClassifier(estimators=[('dt', dt), ('rf', rf_model)], voting='soft')
-
+    # Create the Voting Classifier
+    voting_clf = VotingClassifier(estimators=[
+        ('dt', dt),
+        ('rf', rf_model),
+    ], voting='soft')
 
     models = {
         "Decision Tree": dt,
@@ -153,29 +159,55 @@ def predict_url(url_input, model_file):
     # Load the saved model and label encoder
     model = sio.load(model_path, trusted=unknown_types_model)
     le = sio.load(f"{BASE_PATH}url_label_encoder.skops", trusted=unknown_types_le)
-    vectorizer = sio.load(f"{BASE_PATH}url_vectorizer.skops", trusted=sio.get_untrusted_types(file=f"{BASE_PATH}url_vectorizer.skops"))
+    vectorizer = sio.load(f"{BASE_PATH}_url_vectorizer.skops", trusted=sio.get_untrusted_types(file=f"{BASE_PATH}url_vectorizer.skops"))
 
     # Ensure le is actually a LabelEncoder
     if not isinstance(le, LabelEncoder):
         raise TypeError("The loaded 'le' object is not a LabelEncoder")
     
-      # Extract features from the input URL
+    # Extract features from the URL
     url_features = extract_url_features(url_input)
-    X_tfidf = vectorizer.transform([url_input])  # Transform using TF-IDF
+    
+    # Transform the URL using TfidfVectorizer
+    X_tfidf = vectorizer.transform([url_input])
 
-    # Convert URL features into a 2D array
-    X_features = pd.DataFrame([url_features]).drop(['tld', 'domain'], axis=1).values
-    X_features_sparse = csr_matrix(X_features)  # Convert to sparse matrix
+    
+    
+    # Convert url_features dictionary to a list of numeric values
+    feature_values = []
+    for key, value in url_features.items():
+        if key not in ['tld', 'domain']:  # Exclude 'tld' and 'domain' from numeric features
+            if isinstance(value, str):
+                if value == '':
+                    feature_values.append(0.0)
+                else:
+                    try:
+                        feature_values.append(float(value))
+                    except ValueError:
+                        feature_values.append(0.0)
+            else:
+                feature_values.append(float(value))
 
-    # Combine TF-IDF and URL features
-    X_combined = hstack([X_tfidf, X_features_sparse], format='csr')
+    # Convert feature_values to a numpy array and reshape to 2D
+    feature_array = np.array(feature_values).reshape(1, -1)
 
-    # Handle NaN/infinity values
-    X_combined = csr_matrix(np.nan_to_num(X_combined.toarray(), nan=0.0, posinf=0.0, neginf=0.0))
+    # Ensure X_tfidf is 2D
+    X_tfidf_array = X_tfidf.toarray()
 
-    # Predict with the loaded model
-    y_pred = model.predict(X_combined)
-    y_pred_proba = model.predict_proba(X_combined)
+    print(f"Shape of X_tfidf_array: {X_tfidf_array.shape}")  # Debugging line
+    print(f"Shape of feature_array: {feature_array.shape}")  # Debugging line
+
+    # Combine TfidfVectorizer features with extracted features
+    X = np.hstack((X_tfidf_array, feature_array))
+
+    # Handle any remaining NaN or inf values
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+
+    print(f"Shape of X: {X.shape}")  # Debugging line
+
+    # Make predictions
+    y_pred = model.predict(X)
+    y_pred_proba = model.predict_proba(X)
 
     confidence_scores = np.max(y_pred_proba, axis=1)
 

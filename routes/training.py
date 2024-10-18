@@ -1,3 +1,4 @@
+import ast
 import os
 from flask import request, jsonify, Blueprint,current_app
 import skops.io as sio
@@ -10,8 +11,7 @@ from utils.main import db
 
 
 training_routes = Blueprint("training", __name__)
-
-    
+   
 @training_routes.route('/upload_and_train', methods=['POST'])
 def upload_and_train_files():
     if 'file' not in request.files:
@@ -27,6 +27,7 @@ def upload_and_train_files():
         
         training = Training(
             results=str(results),
+            training_results= ast.literal_eval(results),
             dataset_for='pe_file',
             model_file = model_file
         )

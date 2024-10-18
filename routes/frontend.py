@@ -1,5 +1,6 @@
 
 import os
+import json
 import uuid
 import ast
 from utils.main import db,auth
@@ -15,8 +16,15 @@ from utils.url_train_predict import predict_url
 
 webapp = Blueprint("frontend_pages", __name__)
 
-def get_user_agent_info(user_agent):
-    user_agent = parse(user_agent.string)
+
+class ListOfListsEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, list):
+            return obj
+        return json.JSONEncoder.default(self, obj)
+
+def get_user_agent_info(request):
+    user_agent = parse(request.user_agent.string)
     return {
         'ip_address': request.remote_addr,
         'user_agent': str(user_agent),
@@ -24,6 +32,7 @@ def get_user_agent_info(user_agent):
         'os': user_agent.os.family,
         'device': user_agent.device.family
     }
+
 def get_logged_in_user():
     #Check user is logged in
     token = request.headers.get('Authorization', None)
@@ -45,7 +54,7 @@ def predict_from_pe():
         "details": pe_headers
     }
     # Collect and track user data about browser
-    scan_data['request_info'] = get_user_agent_info(request.user_agent)
+    scan_data['request_info'] = get_user_agent_info(request)
     try:
         scan = ScanHistory(**scan_data)
         scan.results = prediction
@@ -102,6 +111,7 @@ def scan_and_predict():
         
         try:
             scan = ScanHistory(**scan_data)
+            scan.status = prediction[0]['prediction']
             scan.results = prediction
             db.session.add(scan)
             db.session.commit()
@@ -132,14 +142,15 @@ def scan_url():
     
     # Call the prediction function
     result = predict_url(url, latest_model.model_file)
+    json_result = json.dumps(result)
     
-
-    # Save the scan to the database
+    
+    # # Save the scan to the database
     url_scan = URLScanHistory(
         url = url,
         results = str(result),
-        details = ast.literal_eval(result),
-        request_info = get_user_agent_info(request.user_agent),
+        details = ast.literal_eval(json_result),
+        request_info = get_user_agent_info(request),
         user_id = user_id,
         status = result['prediction']
     )
