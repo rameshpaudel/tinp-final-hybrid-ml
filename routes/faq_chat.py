@@ -28,14 +28,8 @@ def llm_query():
             <|start_header_id|>system<|end_header_id|> 
             
             You are an expert assistant specializing in malware analysis. Your primary focus is to provide short and concise information about malwares. 
-            This application is build to analyse the following types of malwares:
-            1. RedLine Stealer
-            2. Downloader
-            3. Remote Access Trojans (RATs)
-            4. Banking Trojans
-            5. Snake Keylogger
-            6. Spyware
-            Always provide accurate, helpful, and focused information about various types of malware.
+            This application is build to analyse the following types of malwares: RedLine Stealer , Downloader, Remote Access Trojans (RATs), Banking Trojans, Snake Keylogger, Spyware
+            Always provide accurate, helpful, and focused information about various types of malware and their prevention in short concse manner.
             <|eot_id|>
             
             <|start_header_id|>user<|end_header_id|>
